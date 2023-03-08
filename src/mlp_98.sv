@@ -5,8 +5,8 @@ module mlp_98 #(
               N2 = 20,
               W_X = 4,
               W_K = 4,
-              D1  = $clog2(N1/2),
-              D2  = $clog2(N2),
+              D1  = $clog2(N1/2), //6
+              D2  = $clog2(N2),   //5
   localparam  W_A_MAG_MUL = W_X + W_K,
               W_A_MAG_SUM = W_A_MAG_MUL + $clog2(N1/2),
               W_A_POL_MUL = 1 + W_K,
@@ -45,14 +45,14 @@ module mlp_98 #(
 
   genvar d, n1, n2, a;
 
-`define MULTIPLY(RESULT, K, X) \
-  RESULT <= (W_K==1) ? $signed(K ? -X : X) : $signed(K)*$signed(X)
+`define MULTIPLY(K, X) (W_K==1) ? $signed(K ? -X : X) : $signed(K)*$signed(X)
 
   for (n2=0; n2<N2; n2=n2+1) begin: gN2
     for (n1=0; n1<N1/2; n1=n1+1) begin: gN1
-      always_ff @(posedge clk) begin           // Register multipliers
-        `MULTIPLY(a_mag_tree_o[0][n1][n2], weights_n1_mag[n1][n2], in_mag[n1]);
-        `MULTIPLY(a_pol_tree_o[0][n1][n2], weights_n1_pol[n1][n2], in_pol[n1]);
+      always_ff @(posedge clk) begin
+        // REG_1
+        a_mag_tree_o[0][n1][n2] <= `MULTIPLY(weights_n1_mag[n1][n2], in_mag[n1]);
+        a_pol_tree_o[0][n1][n2] <= `MULTIPLY(weights_n1_pol[n1][n2], in_pol[n1]);
       end
     end
       
@@ -63,28 +63,39 @@ module mlp_98 #(
           assign a_pol_tree_i[d+1][a][n2] = $signed(a_pol_tree_o[d][2*a][n2]) + $signed(a_pol_tree_o[d][2*a+1][n2]); 
           assign a_mag_tree_i[d+1][a][n2] = $signed(a_mag_tree_o[d][2*a][n2]) + $signed(a_mag_tree_o[d][2*a+1][n2]);
 
-          always_ff @(posedge clk) begin
-            a_pol_tree_o[d+1][a][n2] <= a_pol_tree_i[d+1][a][n2];
-            a_mag_tree_o[d+1][a][n2] <= a_mag_tree_i[d+1][a][n2];
+          // REG_2,3,4
+          if (d%2==0)
+            always_ff @(posedge clk) begin
+              a_pol_tree_o[d+1][a][n2] <= a_pol_tree_i[d+1][a][n2];
+              a_mag_tree_o[d+1][a][n2] <= a_mag_tree_i[d+1][a][n2];
+            end
+          else begin
+              assign a_pol_tree_o[d+1][a][n2] = a_pol_tree_i[d+1][a][n2];
+              assign a_mag_tree_o[d+1][a][n2] = a_mag_tree_i[d+1][a][n2];
           end
         end else
           assign {a_pol_tree_o[d+1][a][n2], a_mag_tree_o[d+1][a][n2]} = '0;
       end
     end
     
+    // REG_3
     always_ff @(posedge clk)
       sum_a[n2] <= $signed(a_pol_tree_o[D1-1][0][n2]) + $signed(a_mag_tree_o[D1-1][0][n2]);
 
-
+    // REG_4
     always_ff @(posedge clk)           // Register multipliers
-      `MULTIPLY(b_tree[0][n2], weights_n2[n2], sum_a[n2]);
+      b_tree[0][n2] <= `MULTIPLY(weights_n2[n2], sum_a[n2]);
   end
     
   for (d=0; d<D2; d=d+1) begin: D
     for (a=0; a<N2; a=a+1) begin: A
       if (a<N2/2**(d+1)) begin: R
-        always_ff @(posedge clk)
-          b_tree[d+1][a] <= b_tree[d][2*a] + b_tree[d][2*a+1];
+        // REG_5
+        if (d==0 && d==3) // register odd stages (d+1)
+          always_ff @(posedge clk)
+            b_tree[d+1][a] <= b_tree[d][2*a] + b_tree[d][2*a+1];
+        else
+            assign b_tree[d+1][a] = b_tree[d][2*a] + b_tree[d][2*a+1];
       end else 
         assign b_tree[d+1][a] = '0;
     end
@@ -93,3 +104,18 @@ module mlp_98 #(
   assign out = b_tree[D2-1][0];
 
 endmodule
+
+
+/*
+
+
+reset_run synth_1
+launch_runs synth_1 -jobs 10
+
+open_run synth_1 -name synth_1
+report_timing_summary -delay_type min_max -report_unconstrained -check_timing_verbose -max_paths 500 -input_pins -routable_nets -name timing_1
+report_utilization -name utilization_1
+
+
+
+*/
