@@ -20,19 +20,10 @@ module mlp_98_tb;
   logic [N1/2-1:0][W_X-1:0] in_mag;
   logic [N1/2-1:0]          in_pol;
   logic [W_Y_SUM -1:0]      out;
+  int status;
 
   initial forever #(CLK_PERIOD/2) clk <= ~clk;
-
-  mlp_98 #(
-    .N1  (N1 ),
-    .N2  (N2 ),
-    .W_X (W_X),
-    .W_K (W_K),
-    .D1  (D1 ),
-    .D2  (D2 )
-  ) dut (.*);
-
-  int status;
+  mlp_98 #(.N1(N1),.N2(N2),.W_X(W_X),.W_K(W_K),.D1(D1),.D2(D2)) dut (.*);
 
   initial begin
     status = std::randomize(in_mag);
