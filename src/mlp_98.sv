@@ -2,7 +2,7 @@
 
 module mlp_98 #(
   parameter   N1 = 98,
-              N2 = 20,
+              N2 = 10,
               W_X = 4,
               W_K = 4,
               D1  = $clog2(N1/2), //6

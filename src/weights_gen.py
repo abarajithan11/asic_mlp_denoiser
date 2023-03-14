@@ -2,7 +2,7 @@ import numpy as np
 np.random.seed(0)
 
 N1 = 98
-N2 = 20
+N2 = 10
 W_K = 4
 
 w1_mag = np.random.randint(0, 2**W_K, (N1//2,N2))
@@ -39,7 +39,7 @@ for e in row:
 with open("weights_luts.sv", "w") as f:
   f.write(f'''
 
-module weights_luts #(N1=98, N2=20, W_K=4)(
+module weights_luts #(N1={N1}, N2={N2}, W_K={W_K})(
   output wire [W_K-1:0] weights_n1_mag [N1/2][N2],
   output wire [W_K-1:0] weights_n1_pol [N1/2][N2],
   output wire [W_K-1:0] weights_n2 [N2]
