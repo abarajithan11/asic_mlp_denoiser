@@ -4,13 +4,16 @@ np.random.seed(0)
 N1 = 98
 N2 = 10
 W_K = 4
+W_OUT = 16
 
-w1_mag = np.random.randint(0, 2**W_K, (N1//2,N2))
-w1_pol = np.random.randint(0, 2**W_K, (N1//2,N2))
+w1_mag = np.random.randint(0, 2**W_K, (N2,N1//2+1))
+w1_pol = np.random.randint(0, 2**W_K, (N2,N1//2+1))
 # np.savetxt("weights_n1.mem", w1.flatten(), fmt="%x")
 
-w2 = np.random.randint(0, 2**W_K, N2)
+w2 = np.random.randint(0, 2**W_K, N2+1)
 # np.savetxt("weights_n2.mem", w1, fmt="%x")
+
+tan = np.random.randint(0, 2**W_OUT, 2**W_K)
 
 '''
 WRITE WEIGHTS
@@ -33,16 +36,22 @@ for row in w1_pol:
   w1_pol_all += f'''    {row_text},\n'''
 
 n2_row_text = ""
-for e in row:
+for e in w2:
   n2_row_text += f"\n    {W_K}'d{e}".ljust(10) + ","
 
-with open("weights_luts.sv", "w") as f:
-  f.write(f'''
+tan_row_text = ""
+for e in tan:
+  tan_row_text += f"\n    {W_OUT}'d{e}".ljust(10) + ","
 
-module weights_luts #(N1={N1}, N2={N2}, W_K={W_K})(
-  output wire [W_K-1:0] weights_n1_mag [N1/2][N2],
-  output wire [W_K-1:0] weights_n1_pol [N1/2][N2],
-  output wire [W_K-1:0] weights_n2 [N2]
+with open("luts.sv", "w") as f:
+  f.write(f'''
+`timescale 1ns/1ps
+
+module luts #(N1={N1}, N2={N2}, W_K={W_K}, W_OUT={W_OUT})(
+  output wire [N2-1:0][N1/2:0][W_K-1:0] weights_n1_mag,
+  output wire [N2-1:0][N1/2:0][W_K-1:0] weights_n1_pol,
+  output wire [N2  :0][W_K-1:0] weights_n2,
+  output wire [2**W_K-1:0][W_OUT-1:0] tanh 
 );
   assign weights_n1_mag = '{{
 {w1_mag_all[:-2]}
@@ -53,6 +62,9 @@ module weights_luts #(N1={N1}, N2={N2}, W_K={W_K})(
   }};
 
   assign weights_n2 = '{{{n2_row_text[:-1]}
+  }};
+
+  assign tanh = '{{{tan_row_text[:-1]}
   }};
 endmodule
 ''')
