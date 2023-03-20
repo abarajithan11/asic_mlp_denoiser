@@ -1,0 +1,154 @@
+module create_mlp_activations #(parameter DVS_WIDTH = 346, DVS_HEIGHT = 260, WORD_SIZE = 18,CAVIAR_X_Y_BITS = 9,TIMESTAMP_BITS = 16,POLARITY_BITS = 2)( 
+input clk,
+input rst_n, 
+input read_data_mem_vld1,
+input read_data_mem_vld2,
+input [WORD_SIZE-1:0]read_data1_mem,
+input [WORD_SIZE-1:0]read_data2_mem,
+output [WORD_SIZE-1:0]write_data_mem,
+output rw, 
+output [CAVIAR_X_Y_BITS-1:0]addr_port1_x,
+output [CAVIAR_X_Y_BITS-1:0]addr_port1_y,
+output [CAVIAR_X_Y_BITS-1:0]addr_port2_x,
+output [CAVIAR_X_Y_BITS-1:0]addr_port2_y,
+
+//output [DVS_WIDTH-1:0][DVS_HEIGHT-1:0]address,
+input [2*CAVIAR_X_Y_BITS:0]cavier_in,                           
+input cavier_in_vld,
+input [TIMESTAMP_BITS-1:0]current_timestamp,
+input current_timestamp_vld,
+output [TIMESTAMP_BITS-1:0]MLPout1,
+output [POLARITY_BITS -1:0]MLPout2,
+output [TIMESTAMP_BITS-1:0]MLPout3,
+output [POLARITY_BITS-1:0]MLPout4,
+output MLPvld,
+output done
+);
+
+logic [1:0]current_state;
+logic [1:0]next_state;
+enum {IDLE, LOAD_COMPUTE, STORE} current_state;
+enum {IDLE, LOAD_COMPUTE, STORE} next_state;
+
+logic [2*CAVIAR_X_Y_BITS:0]cavier_in_reg;
+logic [TIMESTAMP_BITS-1:0]current_timestamp_reg;
+logic enable_addr_calc;
+logic [5:0]count_upd;
+logic [5:0]count_reg;
+
+logic [WORD_SIZE-1:0]input_addr_addr_calc;
+logic [WORD_SIZE-1:0]addr_temp;
+
+
+addr_calc #(.CAVIAR_X_Y_BITS(CAVIAR_X_Y_BITS)) addr_calc_inst( .count(count_reg), .input_addr_x(input_addr_addr_calc_x), .input_addr_y(input_addr_addr_calc_y).addr1_x(addr1_x), .addr2_x(addr2_x), .addr1_y(addr1_y),.addr2_y(addr2_y) );
+age_calc #(.TIMESTAMP_BITS(TIMESTAMP_BITS),.POLARITY_BITS(POLARITY_BITS), .WORD_SIZE(WORD_SIZE)) age_calc_inst ( .read_data1(read_data1_mem_reg), .read_data2(read_data1_mem_reg), .out1(MLPout1), .out2(MLPout2), .out3(MLPout3), .out4(MLPout4));
+
+//Counter update logic 
+assign count_upd = (read_data_mem_vld1 & read_data_mem_vld2) ? counter_reg+1 : counter_reg;
+
+//Input address to addr_calc module 
+assign input_addr_addr_calc_x = ( count_reg ==0 ) ? : cavier_in_reg[2*CAVIAR_X_Y_BITS:CAVIAR_X_Y_BITS+1]: addr1_x_reg;
+assign input_addr_addr_calc_y = ( count_reg ==0 ) ? : cavier_in_reg[CAVIAR_X_Y_BITS:1]: addr1_y_reg;
+
+//Assigning MLPout valid 
+assign MLPout = read_data_mem_vld1_reg & read_data_mem_vld2_reg;
+
+always_ff@(posedge clk, negedge rst_n)begin
+    if ( !rst_n )begin
+        current_state <= IDLE;
+        counter_reg <=0;
+        read_data_mem_vld1_reg <=0;
+        read_data_mem_vld2_reg <=0;
+        addr1_x_reg <=0;
+        addr1_y_reg <=0;
+        addr2_x_reg <=0;
+        addr2_y_reg <=0;
+        current_timestamp_reg <=0;
+        cavier_in_reg <= 0;
+        read_data1_mem_reg <=0;
+        read_data2_mem_reg <=0;
+    end    
+    else begin
+        current_state <= next_state;
+        count_reg <= count_upd;
+
+        read_data_mem_vld1_reg <= read_data_mem_vld1;
+        read_data_mem_vld2_reg <= read_data_mem_vld2;
+        addr1_x_reg <= addr1_x;
+        addr1_y_reg <= addr1_y;
+        addr2_x_reg <= addr2_x;
+        addr2_y_reg <= addr2_y;
+
+        if ( cavier_in_vld & current_timestamp_vld) begin
+            current_timestamp_reg <= current_timestamp;
+            cavier_in_reg <= cavier_in;
+        end 
+
+        if ( read_data_mem_vld1)   
+            read_data1_mem_reg <= read_data1_mem;
+        if ( read_data_mem_vld2)   
+            read_data2_mem_reg <= read_data2_mem;
+        if ( current_state == STORE)
+            done =1;
+
+    end    
+end
+
+always_comb begin
+    case(state)
+    IDLE:begin
+        addr_port1_x = 0;
+        addr_port1_y = 0;
+        addr_port2_x = 0;
+        addr_port2_y = 0;
+        write_data_mem = 0;
+        rw = 0;
+        cen = 0;
+        done = 0;
+        if ( cavier_in_vld & current_timestamp_vld) begin
+            next_state = LOAD_COMPUTE;
+        end    
+        else begin
+            next_state = IDLE;   
+        end    
+    end    
+    LOAD_COMPUTE:begin
+        rw = 0;
+        write_data_mem = 0;
+        cen = 1;
+        done = 0;
+        if( counter_reg > 24) begin
+            next_state = STORE; 
+            addr_port1_x = cavier_in_reg[2*CAVIAR_X_Y_BITS:CAVIAR_X_Y_BITS+1];
+            addr_port1_y = cavier_in_reg[CAVIAR_X_Y_BITS:1];
+            addr_port2_x = addr1_x_reg;
+            addr_port2_y = addr1_y_reg;
+        end    
+        else begin
+            next_state = LOAD_COMPUTE; 
+            addr_port1_x = addr1_x_reg;
+            addr_port1_y = addr1_y_reg;
+            addr_port2_x = addr2_x_reg;
+            addr_port2_y = addr2_y_reg;
+        end    
+    end    
+    STORE:begin
+        rw = 1;
+        cen = 1;
+        addr_port1_x = cavier_in_reg[2*CAVIAR_X_Y_BITS:CAVIAR_X_Y_BITS+1];
+        addr_port1_y = cavier_in_reg[CAVIAR_X_Y_BITS:1];
+        addr_port2_x = 0;
+        addr_port2_y = 0;
+        write_data_mem = current_timestamp_reg;
+        next_state = IDLE;
+    end   
+
+    endcase
+end
+
+
+
+
+
+
+endmodule 
