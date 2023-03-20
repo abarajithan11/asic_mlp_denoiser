@@ -1,4 +1,0 @@
-./addr_calc.sv
-./age_calc.sv
-./create_mlp_activations.sv
-./create_mlp_activations_tb.sv
