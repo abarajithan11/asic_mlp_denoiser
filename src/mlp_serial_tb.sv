@@ -34,7 +34,7 @@ module mlp_serial_tb;
   wire [2**W_K-1:0][W_Y-1:0] tanh;
   luts LUTS (.*);
 
-  logic [N2-1:0][W_SUM_FC1 -1:0] fc1_out = '0;
+  logic [N2-1:0][W_SUM_FC1 -1:0] fc1_out_exp = '0;
 
   initial begin
 
@@ -46,22 +46,26 @@ module mlp_serial_tb;
       @(posedge clk); #1
 
       in_vld = 1;
+      // in_mag = {W_K'(1), W_K'(1)};
+      in_pol = 0;
       status = std::randomize(in_mag);
-      status = std::randomize(in_pol);
-      queue_mag.push_front(in_mag[0]); queue_mag.push_front(in_mag[1]);
-      queue_pol.push_front(in_pol[0]); queue_pol.push_front(in_pol[1]);
+      // status = std::randomize(in_pol);
+      for (int p=0; p < P; p++) begin
+        queue_mag.push_front(in_mag[p]);
+        queue_pol.push_front(in_pol[p]);
+      end
     end
 
     @(posedge clk); #1
     {in_vld, in_mag, in_pol} = '0;
 
-    wait (out_vld);
+    wait (dut.add_last);
 
     for (int n1=0; n1 < N1/2+1; n1++) begin
       out_mag = queue_mag.pop_back();
       out_pol = queue_pol.pop_back();
       for (int n2=0; n2 < N2; n2++)
-        fc1_out[n2] = $signed(fc1_out[n2]) + $signed(weights_n1_mag[n2][n1]) * $signed(out_mag) + $signed(weights_n1_pol[n2][n1]) * $signed(out_pol);
+        fc1_out_exp[n2] = $signed(fc1_out_exp[n2]) + $signed(weights_n1_mag[n2][n1]) * $signed(out_mag) + $signed(weights_n1_pol[n2][n1]) * $signed(out_pol);
     end
   end
 
