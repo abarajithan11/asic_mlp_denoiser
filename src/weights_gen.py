@@ -6,8 +6,8 @@ N2 = 10
 W_K = 4
 W_OUT = 16
 
-w1_mag = np.random.randint(0, 2**W_K, (N2,N1//2+1))
-w1_pol = np.random.randint(0, 2**W_K, (N2,N1//2+1))
+w1_mag = np.random.randint(-2**W_K/2, 2**W_K/2-1, (N2,N1//2+1))
+w1_pol = np.random.randint(-2**W_K/2, 2**W_K/2-1, (N2,N1//2+1))
 # np.savetxt("weights_n1.mem", w1.flatten(), fmt="%x")
 
 w2 = np.random.randint(0, 2**W_K, N2+1)
@@ -23,7 +23,8 @@ w1_mag_all = ""
 for row in w1_mag:
   row_text = ""
   for e in row:
-    row_text += f"{W_K}'d{e}".ljust(10) + ", "
+    s = '-' if e < 0 else ' '
+    row_text += f"{s}{W_K}'d{abs(e)}".ljust(10) + ", "
   row_text = f"'{{ {row_text[:-2]} }}"
   w1_mag_all += f'''    {row_text},\n'''
 
@@ -31,17 +32,20 @@ w1_pol_all = ""
 for row in w1_pol:
   row_text = ""
   for e in row:
-    row_text += f"{W_K}'d{e}".ljust(10) + ", "
+    s = '-' if e < 0 else ' '
+    row_text += f"{s}{W_K}'d{abs(e)}".ljust(10) + ", "
   row_text = f"'{{ {row_text[:-2]} }}"
   w1_pol_all += f'''    {row_text},\n'''
 
 n2_row_text = ""
 for e in w2:
-  n2_row_text += f"\n    {W_K}'d{e}".ljust(10) + ","
+  s = '-' if e < 0 else ' '
+  n2_row_text += f"\n    {s}{W_K}'d{abs(e)}".ljust(10) + ","
 
 tan_row_text = ""
 for e in tan:
-  tan_row_text += f"\n    {W_OUT}'d{e}".ljust(10) + ","
+  s = '-' if e < 0 else ' '
+  tan_row_text += f"\n    {s}{W_OUT}'d{abs(e)}".ljust(10) + ","
 
 with open("luts.sv", "w") as f:
   f.write(f'''
