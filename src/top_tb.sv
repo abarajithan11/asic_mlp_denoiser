@@ -1,5 +1,5 @@
 module top_tb;
-
+  timeunit 1ns/1ps;
   localparam  DVS_WIDTH = 346,
               DVS_HEIGHT = 260,
               WORD_SIZE = 18,
@@ -70,10 +70,12 @@ module top_tb;
         memory[i] = i;
     end   
 
-    @(posedge clk) rst_n = 0;
+    @(posedge clk) #10ps rst_n = 0;
     for (int m = 0; m < 2; m++) @(posedge clk);
+    #10ps
     rst_n = 1;
     for (int m = 0; m < 2; m++) @(posedge clk);
+    #10ps
 
 
     // START PROCESSOR
@@ -84,7 +86,7 @@ module top_tb;
 
     $display("POLARITY :%d, at X:%d, Y:%d\n",cavier_in[0], cavier_in[18:10], cavier_in[9:1]);
 
-    for (int m = 0; m < 2; m++) @(posedge clk);
+    @(posedge clk) #10ps;
     cavier_in_vld = 1'b0;
     current_timestamp_vld = 1'b0;
 
