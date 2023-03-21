@@ -8,10 +8,10 @@ input [WORD_SIZE-1:0]read_data2_mem,
 output [WORD_SIZE-1:0]write_data_mem,
 output rw, 
 output cen,
-output [CAVIAR_X_Y_BITS-1:0]addr_port1_x,
-output [CAVIAR_X_Y_BITS-1:0]addr_port1_y,
-output [CAVIAR_X_Y_BITS-1:0]addr_port2_x,
-output [CAVIAR_X_Y_BITS-1:0]addr_port2_y,
+output logic [CAVIAR_X_Y_BITS-1:0]addr_port1_x,
+output logic [CAVIAR_X_Y_BITS-1:0]addr_port1_y,
+output logic [CAVIAR_X_Y_BITS-1:0]addr_port2_x,
+output logic [CAVIAR_X_Y_BITS-1:0]addr_port2_y,
 
 //output [DVS_WIDTH-1:0][DVS_HEIGHT-1:0]address,
 input [2*CAVIAR_X_Y_BITS:0]cavier_in,                           
@@ -55,7 +55,7 @@ logic cen_reg;
 logic [2-1:0] count_modulo;
 
 assign cen = cen_reg;
-addr_calc #(.CAVIAR_X_Y_BITS(CAVIAR_X_Y_BITS)) addr_calc_inst( .count_modulo(count_modulo), .input_addr_x(input_addr_addr_calc_x), .input_addr_y(input_addr_addr_calc_y), .addr1_x_out(addr1_x), .addr2_x_out(addr2_x), .addr1_y_out(addr1_y),.addr2_y_out(addr2_y) );
+addr_calc #(.CAVIAR_X_Y_BITS(CAVIAR_X_Y_BITS)) addr_calc_inst( .clk, .count_modulo(count_modulo), .input_addr_x(input_addr_addr_calc_x), .input_addr_y(input_addr_addr_calc_y), .addr1_x_out(addr1_x), .addr2_x_out(addr2_x), .addr1_y_out(addr1_y),.addr2_y_out(addr2_y) );
 age_calc #(.TIMESTAMP_BITS(TIMESTAMP_BITS),.POLARITY_BITS(POLARITY_BITS), .WORD_SIZE(WORD_SIZE)) age_calc_inst( .read_data1(read_data1_mem_reg), .read_data2(read_data2_mem_reg), .out1(MLPout1), .out2(MLPout2), .out3(MLPout3), .out4(MLPout4));
 
 //Counter update logic 
@@ -68,10 +68,12 @@ assign input_addr_addr_calc_y = ( count_reg ==0 ) ? cavier_in_reg[CAVIAR_X_Y_BIT
 //assign MLPvld = read_data_mem_vld1_reg & read_data_mem_vld2_reg;
 
 //Assigning ADDRESS ports of memory  
-assign addr_port1_x = (current_state == STORE)?cavier_in_reg[2*CAVIAR_X_Y_BITS:CAVIAR_X_Y_BITS+1]: addr1_x;
-assign addr_port2_x =  addr2_x;
-assign addr_port1_y = (current_state == STORE)?cavier_in_reg[CAVIAR_X_Y_BITS:1]: addr1_y;
-assign addr_port2_y = addr2_y;
+always_ff @(posedge clk) begin
+addr_port1_x <= (current_state == STORE)?cavier_in_reg[2*CAVIAR_X_Y_BITS:CAVIAR_X_Y_BITS+1]: addr1_x;
+addr_port2_x <=  addr2_x;
+addr_port1_y <= (current_state == STORE)?cavier_in_reg[CAVIAR_X_Y_BITS:1]: addr1_y;
+addr_port2_y <= addr2_y;
+end
 
 //Assigning read/Write and chip enable
 assign rw = (next_state == STORE)? 1:0;
@@ -97,6 +99,7 @@ always_ff@(posedge clk, negedge rst_n)begin
         cavier_in_reg <= 0;
         read_data1_mem_reg <=0;
         read_data2_mem_reg <=0;
+        count_modulo <= 0;
     end    
     else begin
         current_state <= next_state;

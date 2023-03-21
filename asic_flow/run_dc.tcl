@@ -1,4 +1,4 @@
-set top_module mlp_98
+set top_module top
 set rtlPath "../../src/"
 exec mkdir -p log netlist
 
@@ -18,8 +18,16 @@ remove_design -all
 define_design_lib WORK -path .template
 
 # read RTL
-analyze -format sverilog ${rtlPath}weights_luts.sv
-analyze -format sverilog ${rtlPath}mlp_98.sv 
+analyze -format sverilog ../../src/luts.sv
+analyze -format sverilog ../../src/matvec_mul.sv
+analyze -format sverilog ../../src/mlp_serial.sv 
+
+analyze -format sverilog ../../create_mlp_activations/create_mlp_activations.sv 
+analyze -format sverilog ../../create_mlp_activations/addr_calc.sv 
+analyze -format sverilog ../../create_mlp_activations/age_calc.sv 
+
+analyze -format sverilog ../../src/top.sv 
+
 # analyze -format verilog [glob ${rtlPath}*.v]
 elaborate $top_module
 current_design $top_module
@@ -29,13 +37,9 @@ check_design > log/${top_module}_check.rep
 link
 
 # Default SDC Constraints (can be an sdc file)
-set clock_period 0.7
-set io_delay 0.2 
-create_clock -name clk -period $clock_period [get_ports clk]
-set_input_delay -clock [get_clocks clk] -add_delay -max $io_delay [all_inputs]
-set_output_delay -clock [get_clocks clk] -add_delay -max $io_delay [all_outputs]
+
 # set_input_delay -clock [get_clocks clk] -add_delay -max $io_delay [get_ports {key[52]}]
-# read_sdc ${top_module}.sdc
+read_sdc ../${top_module}.sdc
 
 propagate_constraints
 current_design $top_module
